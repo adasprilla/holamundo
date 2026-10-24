@@ -3,13 +3,21 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import { solve, ringPoints, SEGMENTS } from './solver.js';
 
-// Inputs copiados de definition.ir.json (sin fetch: así funciona también abriendo el archivo en local)
+// UI strings (en). For Spanish, swap this block and <html lang>.
+const T = {
+  exported: 'STL exported.',
+  loading: 'loading rhino3dm (~2.5 MB, first time only)…',
+  exported3dm: '3DM exported.',
+  failed: (msg) => `3DM export failed: ${msg}. Use STL instead.`,
+};
+
+// Inputs from definition.ir.json (inlined so the page also works from file://).
 const INPUTS = [
-  { name: 'altura', label: 'altura', min: 21, max: 84, step: 0.1, value: 51.4 },
-  { name: 'seccNum', label: 'seccNum (tramos)', min: 3, max: 7, step: 1, value: 3 },
-  { name: 'posAtrac', label: 'posAtrac', min: 0, max: 1, step: 0.01, value: 0.47 },
+  { name: 'altura', label: 'height', min: 21, max: 84, step: 0.1, value: 51.4 },
+  { name: 'seccNum', label: 'sections', min: 3, max: 7, step: 1, value: 3 },
+  { name: 'posAtrac', label: 'attraction point', min: 0, max: 1, step: 0.01, value: 0.47 },
 ];
-const ORIGIN = [0, 0, 0];
+const ORIGIN = [0, 0, 0]; // RH_IN:origin, fixed
 const params = Object.fromEntries(INPUTS.map(i => [i.name, i.value]));
 
 const canvas = document.getElementById('canvas');
@@ -21,10 +29,10 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x14171c);
+scene.background = new THREE.Color(0x121212);
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 2000);
-camera.up.set(0, 0, 1); // Rhino es Z-up
+camera.up.set(0, 0, 1); // Rhino is Z-up
 camera.position.set(130, -150, 95);
 
 const controls = new OrbitControls(camera, canvas);
@@ -32,7 +40,7 @@ controls.target.set(0, 0, 35);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 
-scene.add(new THREE.HemisphereLight(0xbcd4ff, 0x1b1f26, 1.1));
+scene.add(new THREE.HemisphereLight(0xffffff, 0x222222, 1.1));
 
 const key = new THREE.DirectionalLight(0xffffff, 2.1);
 key.position.set(80, -110, 160);
@@ -44,14 +52,14 @@ scene.add(key, key.target);
 
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(600, 600),
-  new THREE.ShadowMaterial({ opacity: 0.25 })
+  new THREE.ShadowMaterial({ opacity: 0.28 })
 );
 floor.position.z = -0.2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-const grid = new THREE.GridHelper(240, 12, 0x39414b, 0x262c34);
-grid.rotation.x = Math.PI / 2; // XY, como el modelo
+const grid = new THREE.GridHelper(240, 12, 0x333333, 0x242424);
+grid.rotation.x = Math.PI / 2; // XY, like the model
 grid.position.z = -0.1;
 grid.material.transparent = true;
 grid.material.opacity = 0.75;
@@ -59,7 +67,7 @@ scene.add(grid);
 
 const mesh = new THREE.Mesh(
   new THREE.BufferGeometry(),
-  new THREE.MeshStandardMaterial({ color: 0xc9d3dd, roughness: 0.45, metalness: 0.06, side: THREE.DoubleSide })
+  new THREE.MeshStandardMaterial({ color: 0xd0d0d0, roughness: 0.45, metalness: 0.06, side: THREE.DoubleSide })
 );
 mesh.castShadow = true;
 scene.add(mesh);
@@ -67,9 +75,11 @@ scene.add(mesh);
 const ringGroup = new THREE.Group();
 scene.add(ringGroup);
 
+const ringMaterial = new THREE.LineBasicMaterial({ color: 0x5aa9e6, transparent: true, opacity: 0.85 });
+
 // --- UI ---
 const controlsEl = document.getElementById('controls');
-const outputs = {};
+const fields = {};
 
 for (const input of INPUTS) {
   const field = document.createElement('div');
@@ -88,20 +98,15 @@ for (const input of INPUTS) {
     paint();
     schedule();
   });
-  outputs[input.name] = { slider, paint };
+  fields[input.name] = { slider, paint };
   paint();
 }
-
-const originNote = document.createElement('p');
-originNote.className = 'note';
-originNote.textContent = `origin fijo: (${ORIGIN.join(', ')})`;
-controlsEl.append(originNote);
 
 document.getElementById('reset').addEventListener('click', () => {
   for (const input of INPUTS) {
     params[input.name] = input.value;
-    outputs[input.name].slider.value = input.value;
-    outputs[input.name].paint();
+    fields[input.name].slider.value = input.value;
+    fields[input.name].paint();
   }
   rebuild();
 });
@@ -116,7 +121,6 @@ const schedule = () => {
 let lastSolved = null;
 
 function rebuild() {
-  const t0 = performance.now();
   const { positions, indices, circles } = solve({ ...params, origin: ORIGIN });
 
   const geometry = mesh.geometry;
@@ -134,13 +138,7 @@ function rebuild() {
   }
 
   lastSolved = { positions, indices };
-  const ms = performance.now() - t0;
-  document.getElementById('stat-verts').textContent = (positions.length / 3).toLocaleString('es');
-  document.getElementById('stat-tris').textContent = (indices.length / 3).toLocaleString('es');
-  document.getElementById('stat-solve').textContent = `${ms.toFixed(1)} ms`;
 }
-
-const ringMaterial = new THREE.LineBasicMaterial({ color: 0x5aa9e6, transparent: true, opacity: 0.85 });
 
 // --- export ---
 const note = document.getElementById('export-note');
@@ -155,8 +153,8 @@ const download = (blob, filename) => {
 
 document.getElementById('export-stl').addEventListener('click', () => {
   const data = new STLExporter().parse(mesh, { binary: true });
-  download(new Blob([data], { type: 'model/stl' }), 'adHolaMundo.stl');
-  note.textContent = 'STL exportado.';
+  download(new Blob([data], { type: 'model/stl' }), 'holaMundo.stl');
+  note.textContent = T.exported;
 });
 
 let rhinoModule = null;
@@ -165,7 +163,7 @@ const loadRhino = () => (rhinoModule ??= import('rhino3dm').then(m => m.default(
 document.getElementById('export-3dm').addEventListener('click', async (event) => {
   const button = event.currentTarget;
   button.disabled = true;
-  note.textContent = 'cargando rhino3dm (~2.5 MB, solo la primera vez)…';
+  note.textContent = T.loading;
   try {
     const rhino = await loadRhino();
     const { positions, indices } = lastSolved;
@@ -176,30 +174,19 @@ document.getElementById('export-3dm').addEventListener('click', async (event) =>
 
     const file = new rhino.File3dm();
     file.objects().addMesh(m, new rhino.ObjectAttributes());
-    download(new Blob([file.toByteArray()], { type: 'model/vnd.3dm' }), 'adHolaMundo.3dm');
-    note.textContent = '3DM exportado.';
+    download(new Blob([file.toByteArray()], { type: 'model/vnd.3dm' }), 'holaMundo.3dm');
+    note.textContent = T.exported3dm;
   } catch (error) {
-    note.textContent = `No se pudo exportar 3DM: ${error.message}. Usa STL.`;
+    note.textContent = T.failed(error.message);
   } finally {
     button.disabled = false;
   }
 });
 
 // --- loop / resize ---
-let frames = 0;
-let stamp = performance.now();
-const fpsEl = document.getElementById('stat-fps');
-
 function loop() {
   controls.update();
   renderer.render(scene, camera);
-  frames++;
-  const now = performance.now();
-  if (now - stamp >= 500) {
-    fpsEl.textContent = Math.round((frames * 1000) / (now - stamp));
-    frames = 0;
-    stamp = now;
-  }
   requestAnimationFrame(loop);
 }
 
