@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HolaMundo — Configurador 3D</title>
+<meta name="description" content="Configurador 3D paramétrico HolaMundo creado por Daniel Asprilla. Ajusta altura y secciones y exporta a STL/3DM. Proyecto personal, no solicita datos.">
+<meta name="author" content="Daniel Asprilla">
+<meta property="og:title" content="HolaMundo — Configurador 3D">
+<meta property="og:description" content="Visor 3D paramétrico con exportación STL y 3DM.">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:,">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "rhino3dm": "https://cdn.jsdelivr.net/npm/rhino3dm@8.0.1/rhino3dm.module.js"
+  }
+}
+</script>
+</head>
+<body>
+  <aside class="panel left">
+    <header>
+      <h1>HolaMundo</h1>
+      <p class="sub">Configurador paramétrico · por Daniel Asprilla · Proyecto personal</p>
+    </header>
+    <div id="controls"></div>
+    <button id="reset" type="button" class="ghost">Reset</button>
+    <p class="note" style="margin-top:12px">Este visor no solicita contraseñas ni datos sensibles. Solo genera geometría local en tu navegador.</p>
+  </aside>
+
+  <main id="view">
+    <canvas id="canvas"></canvas>
+    <p class="hint">arrastra para orbitar · rueda para zoom</p>
+  </main>
+
+  <aside class="panel right">
+    <h2>Modelo</h2>
+    <dl id="stats" aria-live="polite">
+      <dt>vértices</dt><dd id="stat-verts">—</dd>
+      <dt>triángulos</dt><dd id="stat-tris">—</dd>
+      <dt>solve</dt><dd id="stat-solve">—</dd>
+      <dt>fps</dt><dd id="stat-fps">—</dd>
+    </dl>
+    <h2>Exportar</h2>
+    <button id="export-stl" type="button">STL</button>
+    <button id="export-3dm" type="button">3DM</button>
+    <p id="export-note" class="note"></p>
+    <p class="note">Hecho con Three.js + rhino3dm. Código abierto en GitHub.</p>
+  </aside>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
